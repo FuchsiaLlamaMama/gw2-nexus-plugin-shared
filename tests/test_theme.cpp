@@ -9,6 +9,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <type_traits>
+
 #include "theme/nine_slice.h"
 #include "theme/theme.h"
 
@@ -188,9 +190,21 @@ TEST_CASE("theme: default palette matches the reference design tokens")
     CHECK(p.danger_bg     == Color{60, 24, 20, 230});   // #3c1814 @ 0.90
     CHECK(p.danger_text   == Color{232, 184, 172, 255}); // #e8b8ac
     CHECK(p.danger_text_2 == Color{255, 216, 205, 255}); // #ffd8cd
-    // Corner ornament stroke #caa85f, 30px bracket.
-    CHECK(p.corner.stroke == Color{202, 168, 95, 255});
-    CHECK(p.corner.size_px == doctest::Approx(30.0f));
+}
+
+// The corner L-bracket ornament was removed from the shared palette; guard
+// against it coming back.
+namespace detail {
+template <class T, class = void>
+struct has_corner_ornament : std::false_type {};
+template <class T>
+struct has_corner_ornament<T, std::void_t<decltype(std::declval<T&>().corner)>>
+    : std::true_type {};
+} // namespace detail
+
+TEST_CASE("theme: no corner ornament in the shared palette")
+{
+    CHECK_FALSE(detail::has_corner_ornament<Palette>::value);
 }
 
 TEST_CASE("theme: metrics match the design's rounding and spacing")

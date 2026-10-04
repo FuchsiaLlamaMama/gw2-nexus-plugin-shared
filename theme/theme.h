@@ -50,16 +50,6 @@ struct FrameRings
     Color inner_bevel;  // rgba(226,196,124,0.22) — top gold highlight
 };
 
-// Corner filigree (design: four 30x30 brass brackets, one per corner).
-// The default theme draws an L-bracket + dot with primitives.
-struct CornerOrnament
-{
-    Color stroke;   // #caa85f — primary bracket
-    Color accent;   // #8a6f34 — inner accent
-    Color dot;      // #e6c86a — filled dot
-    float size_px;  // 30 — bracket arm length
-};
-
 // Named palette — the tokens a themed panel consumes.
 struct Palette
 {
@@ -76,7 +66,6 @@ struct Palette
     Color border;        // panel border: gold-line #b4965a @ 0.40
     Color trim_line;     // rgba(150,120,70,0.28) — separators, hairlines
     FrameRings rings;
-    CornerOrnament corner;
 
     // Text
     Color text;          // #cfc7b6 — body
@@ -162,11 +151,6 @@ constexpr Palette gw2_palette()
     p.rings.bronze_band = {74, 58, 34, alpha8(0.7)};
     p.rings.separator   = {18, 15, 9, alpha8(0.9)};
     p.rings.inner_bevel = {226, 196, 124, alpha8(0.22)};
-
-    p.corner.stroke  = {202, 168, 95, 255}; // #caa85f
-    p.corner.accent  = {138, 111, 52, 255}; // #8a6f34
-    p.corner.dot     = {230, 200, 106, 255}; // #e6c86a
-    p.corner.size_px = 30.0f;
 
     p.text        = {207, 199, 182, 255}; // #cfc7b6
     p.text_title  = {236, 220, 174, 255}; // #ecdcae

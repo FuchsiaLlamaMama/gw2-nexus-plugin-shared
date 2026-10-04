@@ -8,7 +8,7 @@
 //
 // Two frame paths:
 //   - DrawThemedFrame  — the DEFAULT basic themed border, drawn with ImDrawList
-//     primitives (layered rings + corner filigree). Always available, no asset.
+//     primitives (layered rings). Always available, no asset.
 //   - DrawNineSlice    — the OPTIONAL textured border mechanism: feeds
 //     compute_nine_slice() quads to ImDrawList::AddImage. Used only if a border
 //     texture is available at runtime.
@@ -210,7 +210,8 @@ inline void PopPanelStyle(const ThemeScope& s)
 inline bool TitleBar(const char* title, const char* subtitle, const char* hotkey,
                      const Palette& p = gw2_palette(),
                      const Metrics& /*m*/ = gw2_metrics(),
-                     float bar_height = 58.0f) // shared default height for all plugins
+                     float bar_height = 58.0f, // shared default height for all plugins
+                     bool icon_chip = true)    // false: skip the bronze chip + glyph; the caller draws its own icon in the same 30px slot
 {
     ImDrawList* dl   = ImGui::GetWindowDrawList();
     ImFont*     font = ImGui::GetFont();
@@ -230,20 +231,25 @@ inline bool TitleBar(const char* title, const char* subtitle, const char* hotkey
     dl->AddLine(ImVec2(bar_min.x, bar_max.y), ImVec2(bar_max.x, bar_max.y),
                 to_u32(p.trim_line), 1.0f);
 
-    // Icon chip (rounded bronze) with a simple document glyph.
+    // Icon chip (rounded bronze) with a simple document glyph. The slot is
+    // reserved either way so the title text sits in the same place; with
+    // icon_chip == false nothing is painted in it (the caller's icon goes there).
     const float  icon = 30.0f;
     const ImVec2 ic_min(bar_min.x + 9.0f, mid_y - icon * 0.5f);
     const ImVec2 ic_max(ic_min.x + icon, ic_min.y + icon);
-    dl->AddRectFilled(ic_min, ic_max, to_u32(p.button), 3.0f);
-    dl->AddRect(ic_min, ic_max, to_u32(p.button_border), 3.0f);
+    if (icon_chip)
     {
-        const ImU32  gold = to_u32(p.text_gold);
-        const float  gx = ic_min.x + 9.0f, gy = ic_min.y + 7.0f, gw = 12.0f, gh = 16.0f;
-        dl->AddRect(ImVec2(gx, gy), ImVec2(gx + gw, gy + gh), gold, 1.0f,
-                    ImDrawCornerFlags_All, 1.4f);
-        dl->AddLine(ImVec2(gx + 3, gy + 5),  ImVec2(gx + gw - 3, gy + 5),  gold, 1.0f);
-        dl->AddLine(ImVec2(gx + 3, gy + 8),  ImVec2(gx + gw - 3, gy + 8),  gold, 1.0f);
-        dl->AddLine(ImVec2(gx + 3, gy + 11), ImVec2(gx + gw - 5, gy + 11), gold, 1.0f);
+        dl->AddRectFilled(ic_min, ic_max, to_u32(p.button), 3.0f);
+        dl->AddRect(ic_min, ic_max, to_u32(p.button_border), 3.0f);
+        {
+            const ImU32  gold = to_u32(p.text_gold);
+            const float  gx = ic_min.x + 9.0f, gy = ic_min.y + 7.0f, gw = 12.0f, gh = 16.0f;
+            dl->AddRect(ImVec2(gx, gy), ImVec2(gx + gw, gy + gh), gold, 1.0f,
+                        ImDrawCornerFlags_All, 1.4f);
+            dl->AddLine(ImVec2(gx + 3, gy + 5),  ImVec2(gx + gw - 3, gy + 5),  gold, 1.0f);
+            dl->AddLine(ImVec2(gx + 3, gy + 8),  ImVec2(gx + gw - 3, gy + 8),  gold, 1.0f);
+            dl->AddLine(ImVec2(gx + 3, gy + 11), ImVec2(gx + gw - 5, gy + 11), gold, 1.0f);
+        }
     }
 
     // Title (scaled up) + subtitle, vertically centered as a block.
@@ -327,8 +333,8 @@ inline bool TitleBar(const char* title, const char* subtitle, const char* hotkey
 // --- default frame (primitives) ----------------------------------------------
 
 // Draw the default basic themed frame with primitives: a small stack of
-// concentric rings emulating the design's box-shadow gold/bronze frame, plus an
-// L-bracket filigree + dot in each corner. Drawn inset from the window edge so
+// concentric rings emulating the design's box-shadow gold/bronze frame (no
+// corner filigree). Drawn inset from the window edge so
 // it stays within the window clip rect (unclipped outer glow would need the
 // foreground draw list). This is the primitive approximation of the CSS frame;
 // exact ring falloff and blur are not reproduced.
@@ -356,37 +362,6 @@ inline void DrawThemedFrame(ImDrawList* dl, const ImVec2& p_min,
     dl->AddLine(ImVec2(p_min.x + 3.0f, p_min.y + 3.0f),
                 ImVec2(p_max.x - 3.0f, p_min.y + 3.0f),
                 to_u32(p.rings.inner_bevel), 1.0f);
-
-    // Corner filigree: an L-bracket + dot in each corner. `arm` is the bracket
-    // arm length, clamped so it never exceeds a quarter of the smaller side.
-    const float inset = 4.0f;
-    float arm = p.corner.size_px * 0.5f; // ~15px arms from the 30px SVG
-    const float max_arm = 0.25f * (((p_max.x - p_min.x) < (p_max.y - p_min.y))
-                                       ? (p_max.x - p_min.x)
-                                       : (p_max.y - p_min.y));
-    if (arm > max_arm) { arm = max_arm; }
-    const ImU32 stroke = to_u32(p.corner.stroke);
-    const ImU32 accent = to_u32(p.corner.accent);
-    const ImU32 dot    = to_u32(p.corner.dot);
-
-    struct Corner { float cx, cy, sx, sy; };
-    const Corner corners[4] = {
-        {p_min.x + inset, p_min.y + inset, +1.0f, +1.0f}, // top-left
-        {p_max.x - inset, p_min.y + inset, -1.0f, +1.0f}, // top-right
-        {p_min.x + inset, p_max.y - inset, +1.0f, -1.0f}, // bottom-left
-        {p_max.x - inset, p_max.y - inset, -1.0f, -1.0f}, // bottom-right
-    };
-    for (const Corner& c : corners)
-    {
-        dl->AddLine(ImVec2(c.cx, c.cy), ImVec2(c.cx + c.sx * arm, c.cy), stroke, 1.5f);
-        dl->AddLine(ImVec2(c.cx, c.cy), ImVec2(c.cx, c.cy + c.sy * arm), stroke, 1.5f);
-        // Inner accent stroke, parallel and shorter.
-        dl->AddLine(ImVec2(c.cx + c.sx * 3.0f, c.cy + c.sy * 3.0f),
-                    ImVec2(c.cx + c.sx * (arm * 0.7f), c.cy + c.sy * 3.0f), accent, 1.2f);
-        dl->AddLine(ImVec2(c.cx + c.sx * 3.0f, c.cy + c.sy * 3.0f),
-                    ImVec2(c.cx + c.sx * 3.0f, c.cy + c.sy * (arm * 0.7f)), accent, 1.2f);
-        dl->AddCircleFilled(ImVec2(c.cx, c.cy), 1.8f, dot);
-    }
 }
 
 // --- optional textured 9-slice path ------------------------------------------
