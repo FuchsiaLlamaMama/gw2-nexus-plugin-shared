@@ -1,0 +1,43 @@
+// gw2-nexus-plugin-shared/persistence — cross-addon persistence helpers.
+//
+// Atomic, crash-safe file writes reused by any addon that persists JSON to the
+// Nexus addon directory. Pure C++17: no Nexus.h, no ImGui, no Windows headers,
+// so it compiles and unit-tests on macOS/clang as well as MSVC.
+#pragma once
+
+#include <filesystem>
+#include <optional>
+#include <string>
+
+namespace shared::persistence {
+
+// Atomically replace the file at `target` with `content`.
+//
+// Writes to a temp file named `<target>.tmp` in the SAME directory as `target`,
+// then std::filesystem::rename()s it over the target. rename within a directory
+// is atomic on the platforms we target, so an interrupted write leaves either the
+// old file or the new one intact — never a half-written, corrupt file. The parent
+// directory is created if missing.
+//
+// Scope of the guarantee:
+//   - Corruption-safe against process crash / abrupt exit: readers always see a
+//     complete old-or-new file.
+//   - NOT power-loss durable: bytes may sit in the OS cache (no fsync of the temp
+//     file or parent directory). Fine for addon settings; revisit if a consumer
+//     ever needs fsync-level durability.
+//   - Assumes ONE writer per `target`. The temp name is fixed per target (not
+//     per call), so two concurrent writers to the SAME file would collide on the
+//     temp. Distinct files never collide; today each addon owns its own file and
+//     writes only from the render thread.
+//
+// Returns true on success, false if the write could not be completed (the
+// existing target, if any, is left untouched on failure).
+bool atomic_write(const std::filesystem::path& target, const std::string& content);
+
+// Read the whole file at `path` into a string.
+//
+// Returns std::nullopt if the file does not exist or cannot be opened; callers
+// treat that as "no data yet" (an empty store) rather than an error.
+std::optional<std::string> read_file(const std::filesystem::path& path);
+
+} // namespace shared::persistence
